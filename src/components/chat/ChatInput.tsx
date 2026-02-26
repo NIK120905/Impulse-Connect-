@@ -7,9 +7,19 @@ import { Mic, Paperclip, Send, FileText, SlidersHorizontal, Pause } from "lucide
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
+// Add global interface for SpeechRecognition
+declare global {
+    interface Window {
+        SpeechRecognition: any;
+        webkitSpeechRecognition: any;
+    }
+}
+
 export default function ChatInput() {
     const { activeChatId, addMessage, createNewChat } = useAppStore();
     const [input, setInput] = useState("");
+    const [isListening, setIsListening] = useState(false);
+    const [activeTone, setActiveTone] = useState<"Formal" | "Informal" | "Casual" | null>(null);
     const { toast } = useToast();
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -61,6 +71,33 @@ export default function ChatInput() {
         }
     };
 
+    const handleVoiceClick = () => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            toast({ title: "Not Supported", description: "Voice input is not supported in this browser." });
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            setIsListening(true);
+            toast({ title: "Listening...", description: "Speak now.", duration: 3000 });
+        };
+
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            setInput(prev => prev ? prev + " " + transcript : transcript);
+        };
+
+        recognition.onerror = () => setIsListening(false);
+        recognition.onend = () => setIsListening(false);
+
+        recognition.start();
+    };
+
     return (
         <div className="flex flex-col gap-2 w-full pt-2">
             <div
@@ -92,6 +129,36 @@ export default function ChatInput() {
                     </div>
 
                     <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5 mr-3 border-r border-[--border] pr-3">
+                            <button
+                                onClick={() => setActiveTone(t => t === "Formal" ? null : "Formal")}
+                                className={cn(
+                                    "px-2.5 py-1 text-[11px] uppercase tracking-wider font-semibold rounded-md transition-colors",
+                                    activeTone === "Formal" ? "bg-[--text-primary] text-[--bg-primary]" : "text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary]"
+                                )}
+                            >
+                                Formal
+                            </button>
+                            <button
+                                onClick={() => setActiveTone(t => t === "Informal" ? null : "Informal")}
+                                className={cn(
+                                    "px-2.5 py-1 text-[11px] uppercase tracking-wider font-semibold rounded-md transition-colors",
+                                    activeTone === "Informal" ? "bg-[--text-primary] text-[--bg-primary]" : "text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary]"
+                                )}
+                            >
+                                Informal
+                            </button>
+                            <button
+                                onClick={() => setActiveTone(t => t === "Casual" ? null : "Casual")}
+                                className={cn(
+                                    "px-2.5 py-1 text-[11px] uppercase tracking-wider font-semibold rounded-md transition-colors",
+                                    activeTone === "Casual" ? "bg-[--text-primary] text-[--bg-primary]" : "text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary]"
+                                )}
+                            >
+                                Casual
+                            </button>
+                        </div>
+
                         <button
                             className="p-2 text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary] rounded-lg transition-colors"
                             title="Filters"
@@ -105,11 +172,17 @@ export default function ChatInput() {
                             <Paperclip className="w-4 h-4" strokeWidth={2.5} />
                         </button>
                         <button
-                            className="p-2 text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary] rounded-lg transition-colors"
-                            onClick={() => toast({ title: "Coming soon", description: "Voice input is not yet available." })}
+                            className={cn(
+                                "p-2 rounded-lg transition-colors relative",
+                                isListening ? "text-red-500 bg-red-500/10" : "text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary]"
+                            )}
+                            onClick={handleVoiceClick}
                             title="Voice Input"
                         >
                             <Mic className="w-4 h-4" strokeWidth={2.5} />
+                            {isListening && (
+                                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
+                            )}
                         </button>
 
                         <button

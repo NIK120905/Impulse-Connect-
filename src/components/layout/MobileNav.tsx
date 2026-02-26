@@ -1,0 +1,1 @@
+export default function MobileNav() { return <nav className="h-16 border-t border-[--border] bg-[--bg-secondary] fixed bottom-0 left-0 right-0 flex items-center justify-around z-20">Mobile Nav</nav>; }

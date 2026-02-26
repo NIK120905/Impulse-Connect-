@@ -3,7 +3,7 @@
 import { useAppStore } from "@/store/appStore";
 import { getMockResponse } from "@/lib/mockResponses";
 import { useState, useRef, useEffect } from "react";
-import { Mic, Paperclip, Send, FileText, SlidersHorizontal, Pause, Check } from "lucide-react";
+import { Mic, Paperclip, Send, FileText, SlidersHorizontal, Pause, Check, Play, Square, X, ArrowUp, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -13,21 +13,22 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Add global interface for SpeechRecognition
-declare global {
-    interface Window {
-        SpeechRecognition: any;
-        webkitSpeechRecognition: any;
-    }
-}
-
 export default function ChatInput() {
     const { activeChatId, addMessage, createNewChat } = useAppStore();
     const [input, setInput] = useState("");
-    const [isListening, setIsListening] = useState(false);
     const [activeTone, setActiveTone] = useState<"Formal" | "Informal" | "Casual" | null>(null);
     const { toast } = useToast();
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    // Voice states
+    const [voiceState, setVoiceState] = useState<"idle" | "recording" | "paused" | "processing" | "complete">("idle");
+    const [recordingTime, setRecordingTime] = useState(0);
+    const [bars, setBars] = useState<number[]>(Array(40).fill(4));
+
+    // Optional queue feature
+    const [queuedMessages] = useState(12);
+
+    const timerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         if (textareaRef.current) {
@@ -36,8 +37,32 @@ export default function ChatInput() {
         }
     }, [input]);
 
+    useEffect(() => {
+        if (voiceState === "recording") {
+            timerRef.current = setInterval(() => {
+                setRecordingTime((prev) => prev + 1);
+                setBars(Array(40).fill(0).map(() => Math.floor(Math.random() * 24) + 4));
+            }, 100);
+        } else {
+            if (timerRef.current) clearInterval(timerRef.current);
+            if (voiceState === "paused" || voiceState === "complete") {
+                setBars(prev => prev.map(() => Math.floor(Math.random() * 8) + 4));
+            }
+        }
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+        };
+    }, [voiceState]);
+
+    const formatTime = (timeIn100ms: number) => {
+        const totalSeconds = Math.floor(timeIn100ms / 10);
+        const m = Math.floor(totalSeconds / 60);
+        const s = totalSeconds % 60;
+        return `${m}:${s.toString().padStart(2, "0")}`;
+    };
+
     const handleSend = () => {
-        if (!input.trim()) return;
+        if (!input.trim() && voiceState !== "complete") return;
 
         let chatId = activeChatId;
         if (!chatId) {
@@ -47,12 +72,14 @@ export default function ChatInput() {
         const userMessage = {
             id: `msg_${Date.now()}`,
             role: "user" as const,
-            content: input.trim(),
+            content: input.trim() || "(Voice Message)",
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
 
         addMessage(chatId, userMessage);
         setInput("");
+        setVoiceState("idle");
+        setRecordingTime(0);
 
         // Simulate AI thinking and response
         setTimeout(() => {
@@ -64,7 +91,6 @@ export default function ChatInput() {
                 timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 analysis
             };
-            // Typescript complains about chatId being null but we just handled it above
             // @ts-ignore
             addMessage(chatId, aiMessage);
         }, 1200);
@@ -77,44 +103,100 @@ export default function ChatInput() {
         }
     };
 
-    const handleVoiceClick = () => {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            toast({ title: "Not Supported", description: "Voice input is not supported in this browser." });
-            return;
+    const toggleVoiceRecording = () => {
+        if (voiceState === "idle") {
+            setVoiceState("recording");
+            setRecordingTime(0);
+        } else if (voiceState === "recording") {
+            setVoiceState("paused");
+        } else if (voiceState === "paused") {
+            setVoiceState("recording");
         }
+    };
 
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
+    const stopRecording = () => {
+        setVoiceState("processing");
+        setTimeout(() => {
+            setVoiceState("complete");
+            // Simulate transcription
+            setInput(prev => prev ? prev + " In a galaxy of ideas, be guided by clarity." : "In a galaxy of ideas, be guided by clarity.");
+        }, 1500);
+    };
 
-        recognition.onstart = () => {
-            setIsListening(true);
-            toast({ title: "Listening...", description: "Speak now.", duration: 3000 });
-        };
-
-        recognition.onresult = (event: any) => {
-            const transcript = event.results[0][0].transcript;
-            setInput(prev => prev ? prev + " " + transcript : transcript);
-        };
-
-        recognition.onerror = () => setIsListening(false);
-        recognition.onend = () => setIsListening(false);
-
-        recognition.start();
+    const cancelRecording = () => {
+        setVoiceState("idle");
+        setRecordingTime(0);
     };
 
     return (
-        <div className="flex flex-col gap-2 w-full pt-2">
+        <div className="flex flex-col gap-2 w-full pt-2 relative">
+
+            {/* FLOATING VOICE WIDGET */}
+            {voiceState !== "idle" && (
+                <div className="absolute bottom-[calc(100%+8px)] left-0 right-0 flex justify-center z-50">
+                    <div className="bg-[--bg-card] border border-[--border] shadow-lg rounded-full py-2 px-4 flex items-center gap-4 animate-in slide-in-from-bottom-2 fade-in min-w-[320px]">
+
+                        {voiceState === "processing" ? (
+                            <div className="flex items-center gap-3 w-full py-1 justify-center">
+                                <Loader2 className="w-4 h-4 animate-spin text-[--text-muted]" />
+                                <span className="text-sm font-medium text-[--text-secondary]">Generating transcript...</span>
+                            </div>
+                        ) : voiceState === "complete" ? (
+                            <div className="flex items-center gap-4 w-full justify-between">
+                                <button className="w-8 h-8 rounded-full bg-[--bg-hover] flex items-center justify-center shrink-0 hover:bg-blue-500/10 hover:text-blue-500 transition-colors">
+                                    <Play className="w-4 h-4 fill-current ml-0.5" />
+                                </button>
+
+                                <div className="flex items-center gap-0.5 flex-1 h-6">
+                                    {bars.slice(0, 30).map((h, i) => (
+                                        <div key={i} className="w-1 bg-[--text-muted] rounded-full opacity-50" style={{ height: `${h}px` }} />
+                                    ))}
+                                </div>
+
+                                <span className="text-xs font-mono font-medium text-[--text-muted] shrink-0">{formatTime(recordingTime)}</span>
+
+                                <button className="w-8 h-8 rounded-full bg-[--text-primary] flex items-center justify-center shrink-0 hover:opacity-90 transition-opacity" onClick={handleSend}>
+                                    <ArrowUp className="w-4 h-4 text-[--bg-primary]" />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-3 w-full">
+                                {voiceState === "recording" ? (
+                                    <button onClick={toggleVoiceRecording} className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center shrink-0 text-red-500 hover:bg-red-500/20 transition-colors">
+                                        <Pause className="w-4 h-4 fill-current" />
+                                    </button>
+                                ) : (
+                                    <button onClick={toggleVoiceRecording} className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0 text-blue-500 hover:bg-blue-500/20 transition-colors">
+                                        <Play className="w-4 h-4 fill-current ml-0.5" />
+                                    </button>
+                                )}
+
+                                <div className="flex items-center gap-0.5 flex-1 h-8 justify-center">
+                                    {bars.map((h, i) => (
+                                        <div key={i} className={cn("w-[2.5px] rounded-full transition-all duration-100", voiceState === "recording" ? "bg-red-500" : "bg-[--text-muted]")} style={{ height: `${Math.max(4, h)}px` }} />
+                                    ))}
+                                </div>
+
+                                <span className="text-xs font-mono font-medium text-[--text-muted] shrink-0 w-10 text-right">{formatTime(recordingTime)}</span>
+
+                                <button onClick={stopRecording} className="w-8 h-8 rounded-full bg-[--bg-hover] flex items-center justify-center shrink-0 hover:bg-[--border] transition-colors ml-1">
+                                    <Square className="w-3 h-3 fill-current text-[--text-secondary]" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             <div
                 className={cn(
                     "bg-[--bg-card] border rounded-2xl shadow-sm transition-colors relative flex flex-col group",
-                    input ? "border-[--text-muted]" : "border-[--border]"
+                    input || voiceState !== "idle" ? "border-[--text-muted]" : "border-[--border]"
                 )}
             >
                 {!input && (
                     <span className="absolute left-4 top-3 text-[--text-muted] pointer-events-none select-none text-[15px]">
-                        / Search or type a command...
+                        {voiceState !== "idle" ? "" : "What's on your mind"}
                     </span>
                 )}
 
@@ -123,8 +205,8 @@ export default function ChatInput() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Paste the message you're about to send..."
-                    className="w-full bg-transparent resize-none border-none outline-none py-3 px-4 min-h-[44px] max-h-[120px] text-[15px] placeholder:text-transparent leading-relaxed"
+                    placeholder=" "
+                    className="w-full bg-transparent resize-none border-none outline-none py-3 px-4 min-h-[44px] max-h-[120px] text-[15px] leading-relaxed"
                     rows={1}
                 />
 
@@ -134,7 +216,8 @@ export default function ChatInput() {
                         <span className="text-xs font-semibold tracking-wide">My Prompts</span>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 relative">
+                        {/* Option buttons */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <button
@@ -163,32 +246,52 @@ export default function ChatInput() {
                                 ))}
                             </DropdownMenuContent>
                         </DropdownMenu>
+
                         <button
                             className="p-2 text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary] rounded-lg transition-colors"
                             title="Attach File"
                         >
                             <Paperclip className="w-4 h-4" strokeWidth={2.5} />
                         </button>
-                        <button
-                            className={cn(
-                                "p-2 rounded-lg transition-colors relative",
-                                isListening ? "text-red-500 bg-red-500/10" : "text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary]"
+
+                        {voiceState === "complete" && (
+                            <button
+                                onClick={cancelRecording}
+                                className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                                title="Delete Voice Note"
+                            >
+                                <X className="w-4 h-4" strokeWidth={2.5} />
+                            </button>
+                        )}
+
+                        <div className="relative">
+                            <button
+                                className={cn(
+                                    "p-2 rounded-lg transition-colors relative",
+                                    voiceState === "recording" ? "text-red-500 bg-red-500/10" : "text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary]"
+                                )}
+                                onClick={toggleVoiceRecording}
+                                title={voiceState === "idle" ? "Start Voice Input" : "Recording Options"}
+                            >
+                                <Mic className="w-4 h-4" strokeWidth={2.5} />
+                                {voiceState === "recording" && (
+                                    <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
+                                )}
+                            </button>
+                            {/* Queue Badge */}
+                            {queuedMessages > 0 && voiceState === "idle" && (
+                                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[--text-primary] text-[--bg-primary] text-[9px] font-bold">
+                                    {queuedMessages}
+                                </span>
                             )}
-                            onClick={handleVoiceClick}
-                            title="Voice Input"
-                        >
-                            <Mic className="w-4 h-4" strokeWidth={2.5} />
-                            {isListening && (
-                                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
-                            )}
-                        </button>
+                        </div>
 
                         <button
                             onClick={handleSend}
-                            disabled={!input.trim()}
+                            disabled={!input.trim() && voiceState !== "complete"}
                             className={cn(
                                 "p-2 ml-1 rounded-lg transition-all flex items-center justify-center bg-[--text-primary] text-[--bg-primary]",
-                                !input.trim() ? "opacity-30 cursor-not-allowed" : "hover:opacity-90 active:scale-95"
+                                (!input.trim() && voiceState !== "complete") ? "opacity-30 cursor-not-allowed" : "hover:opacity-90 active:scale-95"
                             )}
                         >
                             <Send className="w-4 h-4" strokeWidth={2.5} />

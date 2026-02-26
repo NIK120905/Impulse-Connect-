@@ -3,9 +3,15 @@
 import { useAppStore } from "@/store/appStore";
 import { getMockResponse } from "@/lib/mockResponses";
 import { useState, useRef, useEffect } from "react";
-import { Mic, Paperclip, Send, FileText, SlidersHorizontal, Pause } from "lucide-react";
+import { Mic, Paperclip, Send, FileText, SlidersHorizontal, Pause, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Add global interface for SpeechRecognition
 declare global {
@@ -129,42 +135,34 @@ export default function ChatInput() {
                     </div>
 
                     <div className="flex items-center gap-1">
-                        <div className="flex items-center gap-1.5 mr-3 border-r border-[--border] pr-3">
-                            <button
-                                onClick={() => setActiveTone(t => t === "Formal" ? null : "Formal")}
-                                className={cn(
-                                    "px-2.5 py-1 text-[11px] uppercase tracking-wider font-semibold rounded-md transition-colors",
-                                    activeTone === "Formal" ? "bg-[--text-primary] text-[--bg-primary]" : "text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary]"
-                                )}
-                            >
-                                Formal
-                            </button>
-                            <button
-                                onClick={() => setActiveTone(t => t === "Informal" ? null : "Informal")}
-                                className={cn(
-                                    "px-2.5 py-1 text-[11px] uppercase tracking-wider font-semibold rounded-md transition-colors",
-                                    activeTone === "Informal" ? "bg-[--text-primary] text-[--bg-primary]" : "text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary]"
-                                )}
-                            >
-                                Informal
-                            </button>
-                            <button
-                                onClick={() => setActiveTone(t => t === "Casual" ? null : "Casual")}
-                                className={cn(
-                                    "px-2.5 py-1 text-[11px] uppercase tracking-wider font-semibold rounded-md transition-colors",
-                                    activeTone === "Casual" ? "bg-[--text-primary] text-[--bg-primary]" : "text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary]"
-                                )}
-                            >
-                                Casual
-                            </button>
-                        </div>
-
-                        <button
-                            className="p-2 text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary] rounded-lg transition-colors"
-                            title="Filters"
-                        >
-                            <SlidersHorizontal className="w-4 h-4" strokeWidth={2.5} />
-                        </button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    className={cn(
+                                        "p-2 rounded-lg transition-colors relative",
+                                        activeTone ? "text-[--text-primary] bg-[--bg-hover]" : "text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary]"
+                                    )}
+                                    title="Message Tone"
+                                >
+                                    <SlidersHorizontal className="w-4 h-4" strokeWidth={2.5} />
+                                    {activeTone && (
+                                        <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[--text-primary] rounded-full" />
+                                    )}
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-[140px] bg-[--bg-card] border-[--border] shadow-lg mb-2 z-50">
+                                {(["Formal", "Informal", "Casual"] as const).map((tone) => (
+                                    <DropdownMenuItem
+                                        key={tone}
+                                        onClick={() => setActiveTone(t => t === tone ? null : tone)}
+                                        className="flex items-center justify-between cursor-pointer focus:bg-[--bg-hover] focus:text-[--text-primary]"
+                                    >
+                                        <span className="text-sm">{tone}</span>
+                                        {activeTone === tone && <Check className="w-3.5 h-3.5 text-[--text-primary]" />}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                         <button
                             className="p-2 text-[--text-muted] hover:bg-[--bg-hover] hover:text-[--text-primary] rounded-lg transition-colors"
                             title="Attach File"

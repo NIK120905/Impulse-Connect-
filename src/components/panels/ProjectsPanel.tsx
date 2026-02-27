@@ -4,8 +4,10 @@ import { useAppStore } from "@/store/appStore";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { mockProjects } from "@/lib/mockData";
 import { Plus } from "lucide-react";
+import { Project } from "@/lib/types";
+
+const mockProjects: Project[] = [];
 
 export default function ProjectsPanel() {
     const { setActiveChatId } = useAppStore();

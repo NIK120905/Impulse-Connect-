@@ -39,7 +39,7 @@ export default function IconRail() {
         { id: "profile", icon: UserCircle, label: "Profile", action: () => setActivePanel("profile") },
     ];
 
-    const iconVariants = {
+    const iconVariants: any = {
         hidden: { opacity: 0, y: 8 },
         visible: (i: number) => ({
             opacity: 1,
@@ -53,7 +53,7 @@ export default function IconRail() {
             <aside className="flex h-full w-[64px] flex-col justify-between border-r border-[--border] bg-[--bg-secondary] py-4 items-center shrink-0 z-20">
                 <div className="flex flex-col gap-2">
                     {topIcons.map((item, i) => (
-                        <Tooltip key={item.id} placement="right">
+                        <Tooltip key={item.id}>
                             <TooltipTrigger asChild>
                                 <motion.button
                                     custom={i}
@@ -81,7 +81,7 @@ export default function IconRail() {
 
                 <div className="flex flex-col gap-2">
                     {bottomIcons.map((item, i) => (
-                        <Tooltip key={item.id} placement="right">
+                        <Tooltip key={item.id}>
                             <TooltipTrigger asChild>
                                 <motion.button
                                     custom={i + topIcons.length}

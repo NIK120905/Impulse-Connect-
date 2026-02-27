@@ -6,7 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "[APPNAME] - Message Review",
+  title: "Impulse Control - Message Review",
   description: "Paste any message you're about to send.",
 };
 

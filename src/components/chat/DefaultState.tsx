@@ -20,7 +20,7 @@ export default function DefaultState() {
                 </svg>
             </div>
 
-            <h1 className="text-[32px] font-semibold mb-1 text-[--text-primary] z-10">Hey, I'm TypingMind.</h1>
+            <h1 className="text-[32px] font-semibold mb-1 text-[--text-primary] z-10">Hey, I'm Impulse Control.</h1>
             <h2 className="text-[20px] text-[#A1A1AA] font-medium tracking-tight z-10">How can I help you today?</h2>
         </motion.div>
     );

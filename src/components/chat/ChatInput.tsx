@@ -68,13 +68,16 @@ export default function ChatInput() {
         return `${m}:${s.toString().padStart(2, "0")}`;
     };
 
-    const handleSend = () => {
+    const handleSend = async () => {
         if (!input.trim() && voiceState !== "complete") return;
 
         let chatId = activeChatId;
         if (!chatId) {
-            chatId = createNewChat();
+            chatId = await createNewChat(input.trim() || "(Voice Message)");
         }
+
+        // If creating a chat failed, abort sending
+        if (!chatId) return;
 
         const userMessage = {
             id: `msg_${Date.now()}`,
@@ -83,13 +86,13 @@ export default function ChatInput() {
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
 
-        addMessage(chatId, userMessage);
+        await addMessage(chatId, userMessage);
         setInput("");
         setVoiceState("idle");
         setRecordingTime(0);
 
         // Simulate AI thinking and response
-        setTimeout(() => {
+        setTimeout(async () => {
             const analysis = getMockResponse(userMessage.content);
             const aiMessage = {
                 id: `ai_${Date.now()}`,
@@ -99,7 +102,7 @@ export default function ChatInput() {
                 analysis
             };
             // @ts-ignore
-            addMessage(chatId, aiMessage);
+            await addMessage(chatId, aiMessage);
         }, 1200);
     };
 

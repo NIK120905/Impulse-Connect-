@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useAppStore } from "@/store/appStore";
 import { AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 // Lazy load layout components for performance
 const IconRail = dynamic(() => import("@/components/layout/IconRail"), { ssr: false });
@@ -14,7 +15,15 @@ const MobileDrawer = dynamic(() => import("@/components/layout/MobileDrawer"), {
 
 export default function Home() {
   const isPanelOpen = useAppStore((state) => state.isPanelOpen);
+  const loadChats = useAppStore((state) => state.loadChats);
   const [isMobile, setIsMobile] = useState(false);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      loadChats();
+    }
+  }, [user, loadChats]);
 
   // Resize listener
   useEffect(() => {
